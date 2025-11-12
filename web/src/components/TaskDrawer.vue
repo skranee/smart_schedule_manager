@@ -18,6 +18,7 @@ interface CatalogTemplate {
 const props = defineProps<{
   modelValue: boolean;
   task: TaskRecord | null;
+  initialDate?: string; // Initial date for new tasks (ISO format)
 }>();
 
 const emit = defineEmits<{
@@ -40,6 +41,7 @@ const formState = reactive({
   priority: 0.5,
   deadline: '',
   fixedStart: '',
+  scheduledDate: '', // Date when this task should be scheduled
   categoryOverride: 'auto' as CategoryOverride
 });
 
@@ -113,6 +115,16 @@ function applyTask(task: TaskRecord | null) {
   formState.fixedStart = task?.fixedTime
     ? new Date(task.fixedTime.start).toISOString().slice(0, 16)
     : '';
+  
+  // Set scheduledDate: use task's date, or initialDate for new tasks
+  if (task?.scheduledDate) {
+    formState.scheduledDate = new Date(task.scheduledDate).toISOString().slice(0, 10);
+  } else if (props.initialDate) {
+    formState.scheduledDate = new Date(props.initialDate).toISOString().slice(0, 10);
+  } else {
+    formState.scheduledDate = '';
+  }
+  
   formState.categoryOverride = task ? task.category : 'auto';
 }
 
@@ -123,6 +135,7 @@ function resetForm() {
   formState.priority = 0.5;
   formState.deadline = '';
   formState.fixedStart = '';
+  formState.scheduledDate = '';
   formState.categoryOverride = 'auto';
   advancedOpen.value = false;
 }
@@ -150,6 +163,13 @@ function onSubmit() {
   const fixedStart = toIso(formState.fixedStart);
   if (fixedStart) {
     payload.fixedTime = { start: fixedStart };
+  }
+
+  // Include scheduledDate if provided
+  if (formState.scheduledDate) {
+    const date = new Date(formState.scheduledDate);
+    date.setHours(0, 0, 0, 0);
+    payload.scheduledDate = date.toISOString();
   }
 
   if (formState.categoryOverride !== 'auto') {
@@ -234,6 +254,15 @@ function onDelete() {
               thumb-label
             />
           </div>
+
+          <v-text-field
+            v-model="formState.scheduledDate"
+            :label="t('task.scheduledDate')"
+            type="date"
+            variant="outlined"
+            density="comfortable"
+            prepend-inner-icon="mdi-calendar"
+          />
 
           <v-text-field
             v-model="formState.deadline"

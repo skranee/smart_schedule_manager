@@ -339,6 +339,7 @@ async function handleChangeDay(isoDate: string) {
     <TaskDrawer
       :model-value="drawerOpen"
       :task="selectedTask"
+      :initial-date="scheduleStore.selectedDate"
       @update:model-value="drawerOpen = $event"
       @save="handleSaveTask"
       @delete="handleDeleteTask"

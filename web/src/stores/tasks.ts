@@ -19,8 +19,16 @@ export const useTaskStore = defineStore('tasks', () => {
     targetDate.setHours(0, 0, 0, 0);
     const targetIso = targetDate.toISOString();
     
+    // Get today's date for comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayIso = today.toISOString();
+    
     return tasks.value.filter((task) => {
-      if (!task.scheduledDate) return true; // Tasks without a scheduled date show on all days
+      if (!task.scheduledDate) {
+        // Tasks without a scheduled date show only on today
+        return targetIso === todayIso;
+      }
       const taskDate = new Date(task.scheduledDate);
       taskDate.setHours(0, 0, 0, 0);
       return taskDate.toISOString() === targetIso;

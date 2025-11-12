@@ -22,6 +22,7 @@
     "description": "Описание",
     "estimatedMinutes": "Оценочное время (мин)",
     "priority": "Приоритет",
+    "scheduledDate": "Запланировать на",
     "deadline": "Дедлайн",
     "desiredWindow": "Желаемый интервал",
     "fixedTime": "Фиксированное начало",
