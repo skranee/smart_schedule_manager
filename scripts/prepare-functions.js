@@ -4,9 +4,22 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Recursively copy directory
+ * Replace @shared imports with relative paths
  */
-function copyDir(src, dest) {
+function replaceSharedImports(filePath, relativeDepth) {
+  let content = fs.readFileSync(filePath, 'utf8');
+  const relativePath = '../'.repeat(relativeDepth) + 'shared-dist';
+  
+  // Replace all @shared/ imports with relative paths
+  content = content.replace(/@shared\//g, `${relativePath}/`);
+  
+  fs.writeFileSync(filePath, content, 'utf8');
+}
+
+/**
+ * Recursively copy directory and fix imports
+ */
+function copyDirAndFixImports(src, dest, baseDepth = 0) {
   // Create destination directory
   if (!fs.existsSync(dest)) {
     fs.mkdirSync(dest, { recursive: true });
@@ -20,9 +33,14 @@ function copyDir(src, dest) {
     const destPath = path.join(dest, entry.name);
 
     if (entry.isDirectory()) {
-      copyDir(srcPath, destPath);
+      copyDirAndFixImports(srcPath, destPath, baseDepth + 1);
     } else {
       fs.copyFileSync(srcPath, destPath);
+      
+      // Fix imports in .js files
+      if (entry.name.endsWith('.js')) {
+        replaceSharedImports(destPath, baseDepth);
+      }
     }
   }
 }
@@ -38,18 +56,35 @@ const sharedDest = path.join(__dirname, '..', 'netlify', 'functions', 'shared-di
 console.log('📦 Preparing Netlify functions...');
 
 try {
-  if (fs.existsSync(serverSrc)) {
-    console.log('  ✓ Copying server/dist → netlify/functions/server-dist');
-    copyDir(serverSrc, serverDest);
-  } else {
-    console.warn('  ⚠ server/dist not found, skipping');
-  }
-
   if (fs.existsSync(sharedSrc)) {
     console.log('  ✓ Copying shared/dist → netlify/functions/shared-dist');
+    // Copy shared without fixing imports (it's the base)
+    const copyDir = (src, dest) => {
+      if (!fs.existsSync(dest)) {
+        fs.mkdirSync(dest, { recursive: true });
+      }
+      const entries = fs.readdirSync(src, { withFileTypes: true });
+      for (const entry of entries) {
+        const srcPath = path.join(src, entry.name);
+        const destPath = path.join(dest, entry.name);
+        if (entry.isDirectory()) {
+          copyDir(srcPath, destPath);
+        } else {
+          fs.copyFileSync(srcPath, destPath);
+        }
+      }
+    };
     copyDir(sharedSrc, sharedDest);
   } else {
     console.warn('  ⚠ shared/dist not found, skipping');
+  }
+
+  if (fs.existsSync(serverSrc)) {
+    console.log('  ✓ Copying server/dist → netlify/functions/server-dist');
+    copyDirAndFixImports(serverSrc, serverDest, 1);
+    console.log('  ✓ Fixed @shared imports in server-dist');
+  } else {
+    console.warn('  ⚠ server/dist not found, skipping');
   }
 
   console.log('✅ Functions prepared successfully');
