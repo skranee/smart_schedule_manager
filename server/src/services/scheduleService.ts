@@ -116,17 +116,37 @@ export async function calculateSchedule(
   taskIds?: string[],
 ) {
   const dayStart = new Date(date);
+  dayStart.setHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart);
   dayEnd.setDate(dayEnd.getDate() + 1);
 
+  // Get today for filtering tasks without scheduledDate
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isToday = dayStart.getTime() === today.getTime();
+
+  const dateFilter = {
+    $or: [
+      // Tasks scheduled for this specific day
+      { scheduledDate: { $gte: dayStart, $lt: dayEnd } },
+      // Tasks without scheduledDate show only on today
+      ...(isToday ? [{ scheduledDate: { $exists: false } }, { scheduledDate: null }] : [])
+    ]
+  };
+
   const tasksQuery = TaskModel.find({
     userId: user._id,
-    $or: [
-      { archived: false },
+    $and: [
       {
-        archived: true,
-        'fixedTime.start': { $gte: dayStart, $lt: dayEnd }
-      }
+        $or: [
+          { archived: false },
+          {
+            archived: true,
+            'fixedTime.start': { $gte: dayStart, $lt: dayEnd }
+          }
+        ]
+      },
+      dateFilter
     ]
   });
   if (taskIds && taskIds.length > 0) {

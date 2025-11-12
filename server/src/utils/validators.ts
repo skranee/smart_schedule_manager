@@ -25,7 +25,11 @@ export const taskInputSchema = z.object({
   estimatedMinutes: z.number().int().min(5).max(24 * 60),
   priority: z.number().min(0).max(1),
   deadline: z.string().datetime().optional(),
-  scheduledDate: z.string().datetime().optional(),
+  scheduledDate: z.string().optional().refine((val) => {
+    if (!val) return true;
+    const date = new Date(val);
+    return !isNaN(date.getTime());
+  }, { message: 'Invalid date format' }),
   fixedTime: z
     .object({
       start: z.string().datetime()
