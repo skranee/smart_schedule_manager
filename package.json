@@ -15,6 +15,7 @@
     "dev:web": "npm run dev --workspace web",
     "dev:shared": "npm run dev --workspace shared",
     "build": "npm run build --workspace shared && npm run build --workspace server && npm run build --workspace web",
+    "build:netlify": "npm run build && node scripts/prepare-functions.js",
     "lint": "run-p lint:shared lint:server lint:web",
     "lint:shared": "npm run lint --workspace shared",
     "lint:server": "npm run lint --workspace server",
