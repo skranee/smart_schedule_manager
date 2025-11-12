@@ -87,6 +87,13 @@
   "language": {
     "russian": "Русский"
   },
+  "settings": {
+    "sleepStart": "Начало сна",
+    "sleepEnd": "Конец сна",
+    "workStart": "Начало рабочего дня",
+    "workEnd": "Конец рабочего дня",
+    "preferredDailyMinutes": "Предпочтительная дневная нагрузка (минут)"
+  },
   "toast": {
     "saved": "Успешно сохранено",
     "deleted": "Удалено",

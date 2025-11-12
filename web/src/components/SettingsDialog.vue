@@ -10,7 +10,7 @@ const props = defineProps<{
     workStart: string;
     workEnd: string;
     preferredDailyMinutes: number;
-    locale: 'en' | 'ru';
+    locale: 'ru';
   } | null;
   saving: boolean;
 }>();
@@ -23,7 +23,7 @@ const emit = defineEmits<{
     workStart: string;
     workEnd: string;
     preferredDailyMinutes: number;
-    locale: 'en' | 'ru';
+    locale: 'ru';
   }): void;
 }>();
 
@@ -35,7 +35,7 @@ const formState = reactive({
   workStart: '09:00',
   workEnd: '17:00',
   preferredDailyMinutes: 480,
-  locale: 'en' as 'en' | 'ru'
+  locale: 'ru' as 'ru'
 });
 
 watch(
@@ -70,14 +70,14 @@ function submit() {
   >
     <v-card>
       <v-card-title class="font-weight-medium">
-        Preferences
+        {{ t('nav.settings') }}
       </v-card-title>
       <v-card-text>
         <v-row dense>
           <v-col cols="6">
             <v-text-field
               v-model="formState.sleepStart"
-              label="Sleep start"
+              :label="t('settings.sleepStart')"
               type="time"
               variant="outlined"
               density="comfortable"
@@ -86,7 +86,7 @@ function submit() {
           <v-col cols="6">
             <v-text-field
               v-model="formState.sleepEnd"
-              label="Sleep end"
+              :label="t('settings.sleepEnd')"
               type="time"
               variant="outlined"
               density="comfortable"
@@ -98,7 +98,7 @@ function submit() {
           <v-col cols="6">
             <v-text-field
               v-model="formState.workStart"
-              label="Work window start"
+              :label="t('settings.workStart')"
               type="time"
               variant="outlined"
               density="comfortable"
@@ -107,7 +107,7 @@ function submit() {
           <v-col cols="6">
             <v-text-field
               v-model="formState.workEnd"
-              label="Work window end"
+              :label="t('settings.workEnd')"
               type="time"
               variant="outlined"
               density="comfortable"
@@ -117,24 +117,13 @@ function submit() {
 
         <v-text-field
           v-model.number="formState.preferredDailyMinutes"
-          label="Preferred daily workload (minutes)"
+          :label="t('settings.preferredDailyMinutes')"
           type="number"
           min="60"
           max="960"
           variant="outlined"
           density="comfortable"
           class="mb-4"
-        />
-
-        <v-select
-          v-model="formState.locale"
-          :items="[
-            { value: 'en', title: 'English' },
-            { value: 'ru', title: 'Русский' }
-          ]"
-          label="Language"
-          variant="outlined"
-          density="comfortable"
         />
       </v-card-text>
       <v-card-actions class="justify-end">
