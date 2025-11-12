@@ -14,18 +14,18 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Import routes from copied server dist (outside functions directory)
-import { userRouter } from '../.build/server-dist/routes/userRoutes';
-import { authRouter } from '../.build/server-dist/routes/authRoutes';
-import { tasksRouter } from '../.build/server-dist/routes/tasksRoutes';
-import { scheduleRouter } from '../.build/server-dist/routes/scheduleRoutes';
-import { settingsRouter } from '../.build/server-dist/routes/settingsRoutes';
-import { catalogRouter } from '../.build/server-dist/routes/catalogRoutes';
-import { modelRouter } from '../.build/server-dist/routes/modelRoutes';
-import { errorHandler } from '../.build/server-dist/middleware/errorHandler';
-import { authGuard } from '../.build/server-dist/middleware/authGuard';
+import { userRouter } from '../.build/server-dist/routes/userRoutes.js';
+import { authRouter } from '../.build/server-dist/routes/authRoutes.js';
+import { tasksRouter } from '../.build/server-dist/routes/tasksRoutes.js';
+import { scheduleRouter } from '../.build/server-dist/routes/scheduleRoutes.js';
+import { settingsRouter } from '../.build/server-dist/routes/settingsRoutes.js';
+import { catalogRouter } from '../.build/server-dist/routes/catalogRoutes.js';
+import { modelRouter } from '../.build/server-dist/routes/modelRoutes.js';
+import { errorHandler } from '../.build/server-dist/middleware/errorHandler.js';
+import { authGuard } from '../.build/server-dist/middleware/authGuard.js';
 
 // Configure passport
-import '../.build/server-dist/config/passport';
+import '../.build/server-dist/config/passport.js';
 
 const app = express();
 

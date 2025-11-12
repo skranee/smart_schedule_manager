@@ -8,9 +8,11 @@ const path = require('path');
  */
 function replaceSharedImports(filePath, relativeDepth) {
   let content = fs.readFileSync(filePath, 'utf8');
-  const relativePath = '../'.repeat(relativeDepth) + 'shared-dist';
+  // From server-dist/X/file.js to shared-dist: need depth+1 levels up
+  const relativePath = '../'.repeat(relativeDepth + 1) + 'shared-dist';
   
   // Replace all @shared/ imports with relative paths
+  // Compiled .js files already have .js extensions in imports
   content = content.replace(/@shared\//g, `${relativePath}/`);
   
   fs.writeFileSync(filePath, content, 'utf8');
@@ -81,7 +83,7 @@ try {
 
   if (fs.existsSync(serverSrc)) {
     console.log('  ✓ Copying server/dist → netlify/.build/server-dist');
-    copyDirAndFixImports(serverSrc, serverDest, 2);
+    copyDirAndFixImports(serverSrc, serverDest, 0);
     console.log('  ✓ Fixed @shared imports in server-dist');
   } else {
     console.warn('  ⚠ server/dist not found, skipping');
