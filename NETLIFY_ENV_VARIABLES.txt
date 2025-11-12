@@ -1,0 +1,71 @@
+# ========================================
+# Переменные окружения для Netlify
+# Сайт: https://smart-schedule-manager.netlify.app
+# ========================================
+
+# Скопируйте эти переменные в:
+# Netlify → Site settings → Environment variables
+
+# ========================================
+# MongoDB Atlas
+# ========================================
+MONGO_URI=mongodb+srv://username:password@cluster0.xxxxx.mongodb.net/smart-schedule?retryWrites=true&w=majority
+# ⚠️ ЗАМЕНИТЕ: username, password и cluster0.xxxxx.mongodb.net на ваши данные из MongoDB Atlas
+
+
+# ========================================
+# Session Secret (сгенерируйте новый!)
+# ========================================
+SESSION_SECRET=замените-на-результат-команды-ниже
+# Сгенерировать:
+# node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
+
+
+# ========================================
+# Google OAuth 2.0
+# ========================================
+GOOGLE_CLIENT_ID=ваш-client-id.apps.googleusercontent.com
+# ⚠️ ЗАМЕНИТЕ на ваш Client ID из Google Cloud Console
+
+GOOGLE_CLIENT_SECRET=GOCSPX-ваш-client-secret
+# ⚠️ ЗАМЕНИТЕ на ваш Client Secret из Google Cloud Console
+
+GOOGLE_CALLBACK_URL=https://smart-schedule-manager.netlify.app/.netlify/functions/api/auth/google/callback
+# ✅ УЖЕ ГОТОВО! Используйте этот URL в Google Console
+
+
+# ========================================
+# App URLs (уже готовы!)
+# ========================================
+BASE_URL=https://smart-schedule-manager.netlify.app
+# ✅ Готово
+
+API_URL=https://smart-schedule-manager.netlify.app/.netlify/functions/api
+# ✅ Готово
+
+
+# ========================================
+# Environment
+# ========================================
+NODE_ENV=production
+# ✅ Готово
+
+
+# ========================================
+# Optional: Hugging Face API (необязательно)
+# ========================================
+HF_API_KEY=hf_ваш_ключ_если_есть
+# Если нет - оставьте пустым или не добавляйте
+
+
+# ========================================
+# ВАЖНО: Google OAuth Redirect URIs
+# ========================================
+# Добавьте в Google Cloud Console:
+# 
+# Authorized JavaScript origins:
+#   https://smart-schedule-manager.netlify.app
+#
+# Authorized redirect URIs:
+#   https://smart-schedule-manager.netlify.app/.netlify/functions/api/auth/google/callback
+
