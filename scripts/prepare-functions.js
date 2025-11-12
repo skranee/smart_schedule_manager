@@ -45,19 +45,19 @@ function copyDirAndFixImports(src, dest, baseDepth = 0) {
   }
 }
 
-// Copy server/dist to netlify/functions/server-dist
+// Copy server/dist to netlify/.build/server-dist (outside functions directory)
 const serverSrc = path.join(__dirname, '..', 'server', 'dist');
-const serverDest = path.join(__dirname, '..', 'netlify', 'functions', 'server-dist');
+const serverDest = path.join(__dirname, '..', 'netlify', '.build', 'server-dist');
 
-// Copy shared/dist to netlify/functions/shared-dist
+// Copy shared/dist to netlify/.build/shared-dist (outside functions directory)
 const sharedSrc = path.join(__dirname, '..', 'shared', 'dist');
-const sharedDest = path.join(__dirname, '..', 'netlify', 'functions', 'shared-dist');
+const sharedDest = path.join(__dirname, '..', 'netlify', '.build', 'shared-dist');
 
 console.log('📦 Preparing Netlify functions...');
 
 try {
   if (fs.existsSync(sharedSrc)) {
-    console.log('  ✓ Copying shared/dist → netlify/functions/shared-dist');
+    console.log('  ✓ Copying shared/dist → netlify/.build/shared-dist');
     // Copy shared without fixing imports (it's the base)
     const copyDir = (src, dest) => {
       if (!fs.existsSync(dest)) {
@@ -80,8 +80,8 @@ try {
   }
 
   if (fs.existsSync(serverSrc)) {
-    console.log('  ✓ Copying server/dist → netlify/functions/server-dist');
-    copyDirAndFixImports(serverSrc, serverDest, 1);
+    console.log('  ✓ Copying server/dist → netlify/.build/server-dist');
+    copyDirAndFixImports(serverSrc, serverDest, 2);
     console.log('  ✓ Fixed @shared imports in server-dist');
   } else {
     console.warn('  ⚠ server/dist not found, skipping');
