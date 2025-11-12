@@ -1,0 +1,90 @@
+@use 'vuetify/styles' with (
+  $body-font-family: ("Inter", "Helvetica", sans-serif),
+  $heading-font-family: ("Manrope", "Inter", sans-serif)
+);
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@500;600;700&display=swap');
+
+body {
+  margin: 0;
+  background: linear-gradient(160deg, #f8f7ff 0%, #eef3ff 40%, #f9faff 100%);
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 600;
+  color: #2f296b;
+}
+
+#app {
+  min-height: 100vh;
+  color: #211d47;
+}
+
+.task-drawer {
+  backdrop-filter: blur(2px);
+}
+
+.app-toolbar {
+  background: hsla(254, 85%, 97%, 0.85);
+  border: 1px solid rgba(109, 87, 204, 0.08);
+  box-shadow: 0 12px 32px rgba(105, 89, 255, 0.08);
+  backdrop-filter: blur(18px);
+  border-radius: 20px;
+  max-width: 1152px;
+  margin: 16px auto 0;
+}
+
+.toolbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-brand__icon {
+  background: rgba(103, 80, 164, 0.1);
+  color: #6750a4;
+}
+
+.toolbar-brand__title {
+  font-family: 'Manrope', sans-serif;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #2f296b;
+}
+
+.toolbar-brand__subtitle {
+  font-size: 0.75rem;
+  color: rgba(47, 41, 107, 0.65);
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pill-btn {
+  border-radius: 999px;
+  padding-inline: 20px;
+  font-weight: 600;
+}
+
+.pill-btn--primary {
+  background: linear-gradient(135deg, #7b68ee, #6c5ce7);
+  color: white !important;
+  box-shadow: 0 12px 28px rgba(108, 92, 231, 0.35);
+}
+
+.pill-btn--primary:hover {
+  box-shadow: 0 16px 32px rgba(108, 92, 231, 0.45);
+}
+

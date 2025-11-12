@@ -1,0 +1,38 @@
+{
+  "name": "smart-schedule-calculator",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Smart Schedule Calculator monorepo (web + server + shared)",
+  "license": "MIT",
+  "workspaces": [
+    "web",
+    "server",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "run-p dev:shared dev:server dev:web",
+    "dev:server": "npm run dev --workspace server",
+    "dev:web": "npm run dev --workspace web",
+    "dev:shared": "npm run dev --workspace shared",
+    "build": "npm run build --workspace shared && npm run build --workspace server && npm run build --workspace web",
+    "lint": "run-p lint:shared lint:server lint:web",
+    "lint:shared": "npm run lint --workspace shared",
+    "lint:server": "npm run lint --workspace server",
+    "lint:web": "npm run lint --workspace web",
+    "test": "run-p test:shared test:server",
+    "test:server": "npm run test --workspace server",
+    "test:shared": "npm run test --workspace shared",
+    "format": "run-p format:shared format:server format:web",
+    "format:shared": "npm run format --workspace shared",
+    "format:server": "npm run format --workspace server",
+    "format:web": "npm run format --workspace web",
+    "seed:belarus-kid": "pnpm --filter server seed:belarus-kid"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.3.3"
+  }
+}
