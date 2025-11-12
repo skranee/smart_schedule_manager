@@ -114,13 +114,13 @@ app.get('/health', (req, res) => {
 app.use(errorHandler);
 
 // Wrap with serverless-http and ensure DB connection
-const handler = serverless(app);
+const serverlessHandler = serverless(app);
 
 export const handler = async (event: any, context: any) => {
   // Ensure DB is connected
   await connectDB();
   
   // Call the serverless handler
-  return handler(event, context);
+  return serverlessHandler(event, context);
 };
 

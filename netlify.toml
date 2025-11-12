@@ -11,6 +11,7 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
   external_node_modules = ["mongoose", "mongodb", "@mapbox/node-pre-gyp"]
+  included_files = ["server/dist/**", "shared/dist/**"]
 
 [[redirects]]
   from = "/api/*"
