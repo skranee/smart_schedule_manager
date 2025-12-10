@@ -15,24 +15,32 @@ export const useTaskStore = defineStore('tasks', () => {
   });
 
   function getTasksForDate(dateIso: string): TaskRecord[] {
+    // Нормализуем целевую дату: используем только дату без времени для сравнения
     const targetDate = new Date(dateIso);
-    targetDate.setHours(0, 0, 0, 0);
-    const targetIso = targetDate.toISOString();
+    const targetDateOnly = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+    const targetDateStr = targetDateOnly.toISOString().split('T')[0];
     
-    // Get today's date for comparison
+    // Получаем сегодняшнюю дату для сравнения
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayIso = today.toISOString();
+    const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const todayDateStr = todayDateOnly.toISOString().split('T')[0];
     
-    return tasks.value.filter((task) => {
+    const filtered = tasks.value.filter((task) => {
       if (!task.scheduledDate) {
-        // Tasks without a scheduled date show only on today
-        return targetIso === todayIso;
+        // Задачи без scheduledDate показываются только на сегодня
+        return targetDateStr === todayDateStr;
       }
+      
+      // Нормализуем дату задачи: используем только дату без времени
       const taskDate = new Date(task.scheduledDate);
-      taskDate.setHours(0, 0, 0, 0);
-      return taskDate.toISOString() === targetIso;
+      const taskDateOnly = new Date(taskDate.getFullYear(), taskDate.getMonth(), taskDate.getDate());
+      const taskDateStr = taskDateOnly.toISOString().split('T')[0];
+      
+      // Сравниваем только даты (без времени)
+      return taskDateStr === targetDateStr;
     });
+    
+    return filtered;
   }
 
   async function loadTasks() {

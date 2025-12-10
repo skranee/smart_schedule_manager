@@ -4,10 +4,14 @@ import { env } from '../config/env.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { UserModel } from '../models/index.js';
 import { buildDefaultWeights } from '@shared/features/featureExtractor.js';
+import { pino } from 'pino';
+
+const logger = pino({ name: 'auth' });
 
 export const authRouter = Router();
 
 authRouter.get('/google', (req, res, next) => {
+  logger.info({ query: req.query, path: req.path }, 'Google OAuth initiation');
   const redirect = typeof req.query.redirect === 'string' ? req.query.redirect : undefined;
   if (redirect) {
     req.session.redirectAfterLogin = redirect;
@@ -22,18 +26,55 @@ authRouter.get('/google', (req, res, next) => {
 
 authRouter.get(
   '/google/callback',
-  passport.authenticate('google', {
-    failureRedirect: `${env.baseUrl}/login?error=auth`
-  }),
-  (req, res) => {
-    const stateRedirect = typeof req.query.state === 'string' ? req.query.state : undefined;
-    const sessionRedirect = req.session.redirectAfterLogin;
-    if (sessionRedirect) {
-      delete req.session.redirectAfterLogin;
+  (req, res, next) => {
+    // Обрабатываем ошибки OAuth2 перед передачей в passport
+    if (req.query.error) {
+      const error = req.query.error as string;
+      const errorDescription = req.query.error_description as string | undefined;
+      console.error('[AUTH] OAuth error in callback:', error, errorDescription);
+      
+      // Для ошибки invalid_grant (код уже использован или истек) предлагаем начать заново
+      if (error === 'access_denied') {
+        return res.redirect(`${env.baseUrl}/login?error=access_denied`);
+      }
+      if (error === 'invalid_grant') {
+        // Код уже использован или истек - перенаправляем на начало авторизации
+        return res.redirect(`${env.baseUrl}/login?error=expired&message=${encodeURIComponent('Сессия истекла. Пожалуйста, войдите снова.')}`);
+      }
+      return res.redirect(`${env.baseUrl}/login?error=auth&reason=${encodeURIComponent(error)}`);
     }
-    const redirectTarget = stateRedirect ?? sessionRedirect ?? '/';
-    const url = new URL(redirectTarget, env.baseUrl);
-    res.redirect(url.toString());
+    next();
+  },
+  (req, res, next) => {
+    // Обрабатываем ошибки аутентификации passport
+    passport.authenticate('google', {
+      failureRedirect: `${env.baseUrl}/login?error=auth`,
+      session: true
+    })(req, res, (err: Error | null) => {
+      if (err) {
+        console.error('[AUTH] Passport authentication error:', err);
+        // Если это ошибка OAuth2 (invalid_grant и т.д.), обрабатываем специально
+        if (err.name === 'TokenError' || (err as any).code === 'invalid_grant' || err.message?.includes('invalid_grant')) {
+          return res.redirect(`${env.baseUrl}/login?error=expired&message=${encodeURIComponent('Сессия истекла. Пожалуйста, войдите снова.')}`);
+        }
+        return res.redirect(`${env.baseUrl}/login?error=auth`);
+      }
+      next();
+    });
+  },
+  (req, res, next) => {
+    try {
+      const stateRedirect = typeof req.query.state === 'string' ? req.query.state : undefined;
+      const sessionRedirect = req.session.redirectAfterLogin;
+      if (sessionRedirect) {
+        delete req.session.redirectAfterLogin;
+      }
+      const redirectTarget = stateRedirect ?? sessionRedirect ?? '/';
+      const url = new URL(redirectTarget, env.baseUrl);
+      res.redirect(url.toString());
+    } catch (error) {
+      next(error);
+    }
   },
 );
 

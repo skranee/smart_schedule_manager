@@ -105,6 +105,9 @@ function formatShortMinutes(minutes: number) {
 }
 
 function applyTask(task: TaskRecord | null) {
+  console.log('🎯 applyTask called - task:', task);
+  console.log('🎯 applyTask - props.initialDate:', props.initialDate);
+  
   formState.title = task?.title ?? '';
   formState.description = task?.description ?? '';
   formState.estimatedMinutes = task?.estimatedMinutes ?? 60;
@@ -112,17 +115,41 @@ function applyTask(task: TaskRecord | null) {
   formState.deadline = task?.deadline
     ? new Date(task.deadline).toISOString().slice(0, 16)
     : '';
-  formState.fixedStart = task?.fixedTime
-    ? new Date(task.fixedTime.start).toISOString().slice(0, 16)
-    : '';
+  // Для fixedTime: преобразуем UTC время в локальное для отображения в datetime-local input
+  // datetime-local input ожидает локальное время в формате "YYYY-MM-DDTHH:mm"
+  // ВАЖНО: время сохранено как UTC, но на самом деле это локальное время пользователя
+  // Поэтому мы интерпретируем UTC компоненты напрямую, без учета часового пояса
+  if (task?.fixedTime?.start) {
+    // Парсим ISO строку и извлекаем UTC компоненты напрямую
+    // Например: "2025-12-03T15:00:00.000Z" -> "2025-12-03T15:00"
+    const isoMatch = task.fixedTime.start.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):/);
+    if (isoMatch) {
+      const [, year, month, day, hours, minutes] = isoMatch;
+      formState.fixedStart = `${year}-${month}-${day}T${hours}:${minutes}`;
+    } else {
+      // Fallback: используем стандартное преобразование
+      const fixedTimeDate = new Date(task.fixedTime.start);
+      const year = fixedTimeDate.getUTCFullYear();
+      const month = String(fixedTimeDate.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(fixedTimeDate.getUTCDate()).padStart(2, '0');
+      const hours = String(fixedTimeDate.getUTCHours()).padStart(2, '0');
+      const minutes = String(fixedTimeDate.getUTCMinutes()).padStart(2, '0');
+      formState.fixedStart = `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+  } else {
+    formState.fixedStart = '';
+  }
   
   // Set scheduledDate: use task's date, or initialDate for new tasks
   if (task?.scheduledDate) {
     formState.scheduledDate = new Date(task.scheduledDate).toISOString().slice(0, 10);
+    console.log('🎯 Set scheduledDate from task:', formState.scheduledDate);
   } else if (props.initialDate) {
     formState.scheduledDate = new Date(props.initialDate).toISOString().slice(0, 10);
+    console.log('🎯 Set scheduledDate from initialDate:', formState.scheduledDate);
   } else {
     formState.scheduledDate = '';
+    console.log('🎯 No scheduledDate set');
   }
   
   formState.categoryOverride = task ? task.category : 'auto';
@@ -149,8 +176,34 @@ function toIso(value: string | undefined) {
   return value && value.length > 0 ? new Date(value).toISOString() : undefined;
 }
 
+/**
+ * Преобразует локальное время из datetime-local input в ISO строку UTC.
+ * datetime-local input возвращает строку в формате "YYYY-MM-DDTHH:mm" без информации о часовом поясе.
+ * Мы интерпретируем это как локальное время и сохраняем его как UTC (без сдвига часового пояса).
+ * 
+ * Например, если пользователь вводит "2025-12-03T15:00" в часовом поясе UTC+3,
+ * мы сохраняем это как "2025-12-03T15:00:00.000Z" (не "2025-12-03T12:00:00.000Z").
+ */
+function toIsoFixedTime(value: string | undefined): string | undefined {
+  if (!value || value.length === 0) return undefined;
+  
+  // Парсим строку в формате "YYYY-MM-DDTHH:mm"
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+  if (!match) {
+    // Если формат не совпадает, используем стандартное преобразование
+    return new Date(value).toISOString();
+  }
+  
+  const [, year, month, day, hours, minutes] = match;
+  // Создаем UTC дату напрямую, интерпретируя введенное время как UTC
+  const isoString = `${year}-${month}-${day}T${hours}:${minutes}:00.000Z`;
+  return isoString;
+}
+
 function onSubmit() {
   if (!isValid.value) return;
+
+  console.log('🔧 TaskDrawer onSubmit - formState.scheduledDate:', formState.scheduledDate);
 
   const payload: Partial<TaskBase> = {
     title: formState.title.trim(),
@@ -160,22 +213,43 @@ function onSubmit() {
     deadline: toIso(formState.deadline)
   };
 
-  const fixedStart = toIso(formState.fixedStart);
+  // Используем специальную функцию для fixedTime, чтобы правильно обработать часовой пояс
+  const fixedStart = toIsoFixedTime(formState.fixedStart);
   if (fixedStart) {
     payload.fixedTime = { start: fixedStart };
+    console.log('🔧 TaskDrawer - Converted fixedStart to:', fixedStart);
   }
 
   // Include scheduledDate if provided
+  // Исправляем проблему с часовыми поясами: создаем дату как полночь UTC
   if (formState.scheduledDate) {
-    const date = new Date(formState.scheduledDate);
-    date.setHours(0, 0, 0, 0);
-    payload.scheduledDate = date.toISOString();
+    // formState.scheduledDate в формате YYYY-MM-DD
+    // Создаем ISO строку напрямую, чтобы избежать сдвига часовых поясов
+    const dateStr = typeof formState.scheduledDate === 'string' 
+      ? formState.scheduledDate 
+      : formState.scheduledDate.toISOString().split('T')[0];
+    payload.scheduledDate = `${dateStr}T00:00:00.000Z`;
+    console.log('🔧 TaskDrawer - Converted scheduledDate to:', payload.scheduledDate);
+  } else if (fixedStart) {
+    // Если scheduledDate не указан, но есть fixedTime, устанавливаем scheduledDate на день fixedTime.start
+    const fixedDate = new Date(fixedStart);
+    const dateStr = fixedDate.toISOString().split('T')[0];
+    payload.scheduledDate = `${dateStr}T00:00:00.000Z`;
+    console.log('🔧 TaskDrawer - Set scheduledDate from fixedTime.start:', payload.scheduledDate);
+  } else if (props.initialDate) {
+    // Если scheduledDate не указан, используем initialDate (выбранный день)
+    const dateStr = new Date(props.initialDate).toISOString().split('T')[0];
+    payload.scheduledDate = `${dateStr}T00:00:00.000Z`;
+    console.log('🔧 TaskDrawer - Set scheduledDate from initialDate:', payload.scheduledDate);
+  } else {
+    console.log('🔧 TaskDrawer - No scheduledDate in formState and no initialDate');
   }
 
   if (formState.categoryOverride !== 'auto') {
     payload.category = formState.categoryOverride;
   }
 
+  console.log('🔧 TaskDrawer - Final payload:', payload);
   emit('save', payload);
 }
 

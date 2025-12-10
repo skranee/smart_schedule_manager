@@ -70,6 +70,13 @@
     "noSlots": "Ещё нет запланированных блоков.",
     "deadlineInfo": "Нет задач со сроком | {count} задача со сроком | {count} задачи со сроком | {count} задач со сроком"
   },
+  "planSummary": {
+    "title": "Снимок расписания",
+    "topCategories": "Топ категорий",
+    "unscheduledTasks": "Незапланированные задачи ({count})",
+    "blocks": "блоков",
+    "hours": "ч"
+  },
   "categories": {
     "healthcare": "Здоровье и уход",
     "sportActivity": "Спорт",

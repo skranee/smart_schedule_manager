@@ -100,8 +100,8 @@ export class HuggingFaceProvider implements AIProvider {
   }): Promise<ExplainResult> {
     const languageInstruction =
       input.locale === 'ru'
-        ? 'Отвечай на русском языке дружелюбным и ободряющим тоном.'
-        : 'Respond in English with a friendly, encouraging tone.';
+        ? 'Отвечай на русском языке дружелюбным и ободряющим тоном. Используй грамматически правильные предложения. Избегай фраз типа "чтобы это подходит" - используй правильные формы глаголов (например, "чтобы это подходило" или "чтобы подходило").'
+        : 'Respond in English with a friendly, encouraging tone. Use grammatically correct sentences.';
 
     const featuresLine =
       input.topFeatures.length > 0
@@ -114,7 +114,9 @@ export class HuggingFaceProvider implements AIProvider {
       `Task: ${input.taskTitle}.`,
       `Scheduled between ${input.start} and ${input.end}.`,
       featuresLine,
-      'Explain in two or three short sentences why this slot works.',
+      input.locale === 'ru'
+        ? 'Объясни в двух-трёх коротких предложениях, почему это время подходит. Используй грамматически правильный русский язык.'
+        : 'Explain in two or three short sentences why this slot works.',
       'Avoid mentioning raw numbers or model weights.'
     ].join('\n');
 

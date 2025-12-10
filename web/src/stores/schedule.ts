@@ -2,6 +2,7 @@ import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import type { ScheduledTaskSegment, FeedbackLabel } from '@shared/types';
 import {
+  getPlan,
   calculateSchedule,
   submitScheduleFeedback,
   applyScheduleEdits,
@@ -18,10 +19,10 @@ function normalizeDateInput(input: string): string {
   const parsed = new Date(input);
   if (Number.isNaN(parsed.valueOf())) {
     const fallback = new Date();
-    fallback.setHours(0, 0, 0, 0);
+    fallback.setUTCHours(0, 0, 0, 0);
     return fallback.toISOString();
   }
-  parsed.setHours(0, 0, 0, 0);
+  parsed.setUTCHours(0, 0, 0, 0);
   return parsed.toISOString();
 }
 
@@ -36,14 +37,22 @@ export const useScheduleStore = defineStore('schedule', () => {
 
   const hasPendingPatches = computed(() => pendingPatches.value.length > 0);
 
-  async function loadSchedule(date: string, taskIds?: string[]) {
+  async function loadSchedule(date: string, taskIds?: string[], forceRecalculate = false) {
     loading.value = true;
     warnings.value = [];
     try {
       const normalized = normalizeDateInput(date);
       selectedDate.value = normalized;
-      const data = await calculateSchedule(normalized, taskIds);
-      applyScheduleResponse(data);
+      
+      // Если нужно пересчитать или переданы taskIds, используем calculateSchedule
+      if (forceRecalculate || taskIds) {
+        const data = await calculateSchedule(normalized, taskIds);
+        applyScheduleResponse(data);
+      } else {
+        // Иначе пытаемся загрузить из БД
+        const data = await getPlan(normalized);
+        applyScheduleResponse(data);
+      }
     } finally {
       loading.value = false;
     }

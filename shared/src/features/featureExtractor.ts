@@ -51,6 +51,7 @@ export interface TaskFeatureMetadata {
   isGamesTask: boolean;
   isSchoolActivity: boolean;
   qualifiesForActivity: boolean;
+  isIndivisible: boolean; // Задача не должна делиться на сегменты
 }
 
 export interface FeatureComputationContext {
@@ -83,6 +84,19 @@ export interface FeatureComputationContext {
 const HOMEWORK_PATTERN = /домашн(яя|ее|ие)\s*(работа|задани)|дз\b|учить|задани/i;
 const GAMES_PATTERN = /игра?(ть)?|майнкрафт|дота|кс\b|шутер|консоль/i;
 const SCHOOL_PATTERN = /урок|школ|занят|репетиц/i;
+
+// Паттерны для неделимых задач (нельзя разбивать на сегменты)
+const INDIVISIBLE_PATTERNS: RegExp[] = [
+  /помыт[ьи]|мыть\s*посуду|посуд/i, // Помить посуду
+  /пылесос|пропылесос/i, // Пылесосить
+  /уборк[аи]|прибрать/i, // Уборка
+  /готов[итьи]|приготовить/i, // Готовка (обычно нельзя прерывать)
+  /душ|принять\s*душ/i, // Душ
+  /ванн[аы]|принять\s*ванну/i, // Ванна
+  /тренировк[аи]|трениров/i, // Тренировка
+  /заняти[ея]\s*(спорт|физкультур)/i, // Спортивные занятия
+  /секци[яи]|кружок/i, // Секции и кружки
+];
 
 const MEAL_MATCHERS: Record<MealType, RegExp> = {
   breakfast: /завтрак/i,
@@ -143,13 +157,36 @@ export function analyzeTaskForFeatures(task: TaskBase): TaskFeatureMetadata {
   const isSchoolActivity = task.category === 'Learning' && SCHOOL_PATTERN.test(rawText);
   const qualifiesForActivity = task.category === 'Relaxing' || task.category === 'Outdoor Play';
 
+  // Определяем, можно ли делить задачу на сегменты
+  // Неделимые задачи:
+  // 1. Школа - всегда неделима
+  // 2. Питание - неделимо (целостный процесс)
+  // 3. Спорт - обычно неделим (тренировка должна быть непрерывной)
+  // 4. Домашние дела с конкретными действиями (помыть посуду, пылесосить, уборка)
+  // 5. Секции и кружки - неделимы
+  const isIndivisible = 
+    isSchoolActivity || // Школа всегда неделима
+    isMealTask || // Питание неделимо
+    task.category === 'Sport activity' || // Спорт обычно неделим
+    INDIVISIBLE_PATTERNS.some(pattern => pattern.test(rawText)) || // Паттерны неделимых задач
+    Boolean(task.fixedTime?.start); // Задачи с фиксированным временем неделимы
+
+  if (isSchoolActivity) {
+    console.log(`[FEATURES] Task "${task.title}" identified as school activity. Category: ${task.category}, rawText: "${rawText}", pattern match: ${SCHOOL_PATTERN.test(rawText)}`);
+  }
+
+  if (isIndivisible) {
+    console.log(`[FEATURES] Task "${task.title}" is indivisible (cannot be split into segments)`);
+  }
+
   return {
     mealType,
     isMealTask,
     isHomework,
     isGamesTask,
     isSchoolActivity,
-    qualifiesForActivity
+    qualifiesForActivity,
+    isIndivisible
   };
 }
 

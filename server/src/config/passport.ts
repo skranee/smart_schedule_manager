@@ -20,13 +20,30 @@ async function resolveUser(profile: Profile): Promise<UserDocument> {
     throw new Error('Google account does not expose an email address');
   }
 
-  const existingUser = await UserModel.findOne({ googleId: profile.id });
+  // Сначала ищем пользователя по googleId
+  let existingUser = await UserModel.findOne({ googleId: profile.id });
   if (existingUser) {
+    existingUser.name = profile.displayName ?? existingUser.name;
+    // Обновляем email, если он изменился
+    if (existingUser.email !== primaryEmail) {
+      existingUser.email = primaryEmail;
+    }
+    await existingUser.save();
+    return existingUser;
+  }
+
+  // Если не найден по googleId, ищем по email (может быть создан через dev-login)
+  existingUser = await UserModel.findOne({ email: primaryEmail });
+  if (existingUser) {
+    // Обновляем googleId для существующего пользователя
+    logger.info({ userId: existingUser.id, email: primaryEmail, oldGoogleId: existingUser.googleId, newGoogleId: profile.id }, 'Updating googleId for existing user');
+    existingUser.googleId = profile.id;
     existingUser.name = profile.displayName ?? existingUser.name;
     await existingUser.save();
     return existingUser;
   }
 
+  // Создаем нового пользователя
   return UserModel.create({
     googleId: profile.id,
     email: primaryEmail,
@@ -41,9 +58,12 @@ async function resolveUser(profile: Profile): Promise<UserDocument> {
 
 const verify: VerifyCallback = async (_accessToken, _refreshToken, profile, done) => {
   try {
+    logger.info({ profileId: profile.id, email: profile.emails?.[0]?.value }, 'Verifying Google profile');
     const user = await resolveUser(profile);
+    logger.info({ userId: user.id, email: user.email }, 'User authenticated successfully');
     return done(null, user);
   } catch (error) {
+    logger.error({ err: error, profileId: profile.id }, 'Error verifying Google profile');
     return done(error as Error);
   }
 };
@@ -51,16 +71,22 @@ const verify: VerifyCallback = async (_accessToken, _refreshToken, profile, done
 const hasGoogleCredentials = Boolean(env.googleClientId && env.googleClientSecret);
 
 if (hasGoogleCredentials) {
-  passport.use(
-    new GoogleStrategy(
-      {
-        clientID: env.googleClientId,
-        clientSecret: env.googleClientSecret,
-        callbackURL: `${env.apiUrl}/auth/google/callback`
-      },
-      verify,
-    ),
+  const strategy = new GoogleStrategy(
+    {
+      clientID: env.googleClientId,
+      clientSecret: env.googleClientSecret,
+      callbackURL: `${env.apiUrl}/auth/google/callback`
+    },
+    verify,
   );
+
+  // Добавляем обработку ошибок OAuth2
+  strategy._oauth2?.on?.('error', (error: Error) => {
+    logger.error({ err: error }, 'OAuth2 error occurred');
+  });
+
+  passport.use(strategy);
+  logger.info('Google OAuth strategy configured');
 } else {
   logger.warn('GOOGLE_CLIENT_ID/SECRET not set, enabling mock Google auth strategy');
 

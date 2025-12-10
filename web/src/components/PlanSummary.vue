@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { differenceInMinutes } from 'date-fns';
 import type { ScheduledTaskSegment, TaskRecord } from '@shared/types';
+
+const { t } = useI18n();
 
 const props = defineProps<{
   segments: ScheduledTaskSegment[];
@@ -39,15 +42,15 @@ const categoryBreakdown = computed(() => {
 <template>
   <v-card elevation="4" rounded="xl">
     <v-card-title class="text-subtitle-1 font-weight-medium">
-      Schedule snapshot
+      {{ t('planSummary.title') }}
     </v-card-title>
     <v-card-text class="d-flex flex-column ga-4">
       <div class="d-flex align-center justify-space-between">
         <div class="text-h5 font-weight-medium">
-          {{ Math.round(scheduledMinutes / 60) }}h
+          {{ Math.round(scheduledMinutes / 60) }}{{ t('planSummary.hours') }}
         </div>
         <div class="text-caption text-medium-emphasis">
-          {{ segments.length }} blocks
+          {{ segments.length }} {{ t('planSummary.blocks') }}
         </div>
       </div>
       <v-progress-linear
@@ -70,7 +73,7 @@ const categoryBreakdown = computed(() => {
       </div>
 
       <div class="d-flex flex-column ga-2">
-        <div class="text-subtitle-2 text-medium-emphasis">Top categories</div>
+        <div class="text-subtitle-2 text-medium-emphasis">{{ t('planSummary.topCategories') }}</div>
         <div class="d-flex flex-wrap ga-2">
           <v-chip
             v-for="category in categoryBreakdown"
@@ -93,7 +96,7 @@ const categoryBreakdown = computed(() => {
 
       <div class="d-flex flex-column ga-1">
         <div class="text-subtitle-2 text-medium-emphasis">
-          Unscheduled tasks ({{ unscheduled.length }})
+          {{ t('planSummary.unscheduledTasks', { count: unscheduled.length }) }}
         </div>
         <v-chip
           v-for="task in unscheduled.slice(0, 3)"

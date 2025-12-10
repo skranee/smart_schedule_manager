@@ -32,13 +32,32 @@ const snackbarMessage = ref('');
 const snackbarColor = ref<'success' | 'error'>('success');
 
 const selectedSegment = computed(() =>
-  scheduleStore.segments.find((segment) => segment.taskId === selectedTaskId.value) ?? null,
+  filteredSegments.value.find((segment) => segment.taskId === selectedTaskId.value) ?? null,
 );
 const selectedTask = computed(() => taskStore.selectedTask);
 
 const isBusy = computed(() => initializing.value || scheduleStore.loading);
 
-const filteredTasks = computed(() => taskStore.getTasksForDate(scheduleStore.selectedDate));
+const filteredTasks = computed(() => {
+  console.log('🎨 filteredTasks computed, selectedDate:', scheduleStore.selectedDate);
+  const result = taskStore.getTasksForDate(scheduleStore.selectedDate);
+  console.log('🎨 filteredTasks result:', result);
+  return result;
+});
+
+// Фильтруем сегменты по выбранной дате
+const filteredSegments = computed(() => {
+  const selectedDate = new Date(scheduleStore.selectedDate);
+  selectedDate.setUTCHours(0, 0, 0, 0);
+  const selectedDateStr = selectedDate.toISOString().split('T')[0];
+  
+  return scheduleStore.segments.filter((segment) => {
+    const segmentStart = new Date(segment.start);
+    segmentStart.setUTCHours(0, 0, 0, 0);
+    const segmentDateStr = segmentStart.toISOString().split('T')[0];
+    return segmentDateStr === selectedDateStr;
+  });
+});
 
 const selectedDateLabel = computed(() => {
   const date = new Date(scheduleStore.selectedDate);
@@ -63,13 +82,16 @@ function showToast(message: string, color: 'success' | 'error' = 'success') {
 
 function startOfDayIso(input: Date | string) {
   const date = input instanceof Date ? input : new Date(input);
-  date.setHours(0, 0, 0, 0);
+  date.setUTCHours(0, 0, 0, 0);
   return date.toISOString();
 }
 
 async function refreshPlan(date: string) {
   await scheduleStore.loadSchedule(date);
-  selectedTaskId.value = scheduleStore.segments[0]?.taskId ?? null;
+  // Используем отфильтрованные сегменты для выбранной даты
+  // Ждем следующего тика, чтобы computed обновился
+  await new Promise(resolve => setTimeout(resolve, 0));
+  selectedTaskId.value = filteredSegments.value[0]?.taskId ?? null;
 }
 
 async function initialize() {
@@ -98,7 +120,8 @@ function handleSelectTask(taskId: string, open = true) {
 
 async function handleCalculate() {
   try {
-    await refreshPlan(scheduleStore.selectedDate);
+    // Принудительно пересчитываем расписание
+    await scheduleStore.loadSchedule(scheduleStore.selectedDate, undefined, true);
     showToast(t('toast.saved'));
   } catch (error) {
     showToast((error as Error).message, 'error');
@@ -107,15 +130,22 @@ async function handleCalculate() {
 
 async function handleSaveTask(payload: Partial<TaskBase>) {
   try {
+    console.log('📅 handleSaveTask - payload.scheduledDate:', payload.scheduledDate);
+    console.log('📅 handleSaveTask - scheduleStore.selectedDate:', scheduleStore.selectedDate);
+    
     // Set scheduledDate to the currently selected date if not already set
     if (!payload.scheduledDate) {
       payload.scheduledDate = scheduleStore.selectedDate;
+      console.log('📅 Set scheduledDate to selectedDate:', payload.scheduledDate);
     }
+    
+    console.log('📅 Final payload.scheduledDate:', payload.scheduledDate);
     
     if (taskStore.selectedTaskId) {
       await taskStore.saveTask(taskStore.selectedTaskId, payload);
     } else {
       const task = await taskStore.addTask(payload);
+      console.log('📅 Created task with scheduledDate:', task.scheduledDate);
       catalogStore.upsertEntry({
         title: task.title,
         defaultMinutes: task.estimatedMinutes,
@@ -124,8 +154,15 @@ async function handleSaveTask(payload: Partial<TaskBase>) {
       });
     }
     drawerOpen.value = false;
-    await Promise.all([taskStore.loadTasks(), catalogStore.loadCatalog()]);
-    await refreshPlan(scheduleStore.selectedDate);
+    
+    // Reload tasks first, then calculate schedule to show the task in calendar
+    await taskStore.loadTasks();
+    await catalogStore.loadCatalog();
+    
+    // Automatically calculate schedule to show task in calendar
+    console.log('📅 Auto-calculating schedule...');
+    await handleCalculate();
+    
     showToast(t('toast.saved'));
   } catch (error) {
     showToast((error as Error).message, 'error');
@@ -136,8 +173,11 @@ async function handleDeleteTask(id: string) {
   try {
     await taskStore.removeTask(id);
     drawerOpen.value = false;
-    await Promise.all([taskStore.loadTasks(), catalogStore.loadCatalog()]);
-    await refreshPlan(scheduleStore.selectedDate);
+    await taskStore.loadTasks();
+    await catalogStore.loadCatalog();
+    
+    // Automatically recalculate schedule after deletion
+    await handleCalculate();
     showToast(t('toast.deleted'));
   } catch (error) {
     showToast((error as Error).message, 'error');
@@ -184,8 +224,11 @@ async function handleReuse(template: CatalogEntry['taskTemplate']) {
       category: template.category,
       scheduledDate: scheduleStore.selectedDate
     });
-    await Promise.all([taskStore.loadTasks(), catalogStore.loadCatalog()]);
-    await refreshPlan(scheduleStore.selectedDate);
+    await taskStore.loadTasks();
+    await catalogStore.loadCatalog();
+    
+    // Automatically calculate schedule after reusing task
+    await handleCalculate();
     showToast(t('toast.saved'));
   } catch (error) {
     showToast((error as Error).message, 'error');
@@ -219,7 +262,7 @@ onMounted(() => {
 async function handleDatePick(value: string | Date) {
   const selected = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(selected.valueOf())) return;
-  selected.setHours(0, 0, 0, 0);
+  selected.setUTCHours(0, 0, 0, 0);
   dateMenu.value = false;
   await refreshPlan(selected.toISOString());
 }
@@ -305,7 +348,7 @@ async function handleChangeDay(isoDate: string) {
             @reuse="handleReuse"
           />
           <PlanSummary
-            :segments="scheduleStore.segments"
+            :segments="filteredSegments"
             :tasks="filteredTasks"
             :warnings="scheduleStore.warnings"
           />
@@ -313,7 +356,7 @@ async function handleChangeDay(isoDate: string) {
 
         <v-col cols="12" md="6">
           <CalendarView
-            :segments="scheduleStore.segments"
+            :segments="filteredSegments"
             :tasks="filteredTasks"
             :date="scheduleStore.selectedDate"
             :loading="isBusy"

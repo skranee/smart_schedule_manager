@@ -270,5 +270,60 @@ describe('smart scheduler math model', () => {
     expect(schedule.length).toBeGreaterThan(0);
     expect(duration).toBeLessThan(800);
   });
+
+  it('places school task in phase 0 (MANDATORY) and does not split it into segments', () => {
+    const schedule = generateSchedule({
+      date: '2025-03-17T00:00:00.000Z', // Понедельник (будний день)
+      tasks: [
+        createTask({
+          id: 'school',
+          title: 'Школа',
+          estimatedMinutes: 240, // 4 часа - достаточно для проверки разбиения
+          priority: 0.8,
+          category: 'Learning'
+        }),
+        createTask({
+          id: 'homework',
+          title: 'Домашняя работа',
+          estimatedMinutes: 60,
+          priority: 0.7,
+          category: 'Learning'
+        })
+      ],
+      weights: buildDefaultWeights('child-school-age'),
+      settings: CHILD_SETTINGS,
+      profile: 'child-school-age',
+      history: {}
+    });
+
+    // Находим все сегменты школы
+    const schoolSegments = schedule.filter((segment) => segment.taskId === 'school');
+    
+    // Школа должна быть размещена
+    expect(schoolSegments.length).toBeGreaterThan(0);
+    
+    // Школа НЕ должна разбиваться на сегменты - должен быть только один непрерывный блок
+    expect(schoolSegments.length).toBe(1);
+    
+    // Проверяем, что школа размещена в правильном временном окне (8:30-13:15)
+    const schoolSegment = schoolSegments[0];
+    const schoolStart = startHour(schoolSegment);
+    expect(schoolStart).toBeGreaterThanOrEqual(8.5);
+    expect(schoolStart).toBeLessThan(13.25);
+    
+    // Проверяем, что длительность сегмента соответствует estimatedMinutes (240 минут = 4 часа)
+    const start = new Date(schoolSegment.start);
+    const end = new Date(schoolSegment.end);
+    const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60);
+    expect(durationMinutes).toBe(240);
+    
+    // Проверяем, что школа размещена до других задач (фаза 0 имеет приоритет)
+    // Домашняя работа должна быть размещена после школы
+    const homeworkSegment = schedule.find((segment) => segment.taskId === 'homework');
+    if (homeworkSegment) {
+      const homeworkStart = startHour(homeworkSegment);
+      expect(homeworkStart).toBeGreaterThanOrEqual(13.25); // После окончания школы
+    }
+  });
 });
 

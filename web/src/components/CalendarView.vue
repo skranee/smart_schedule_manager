@@ -42,17 +42,46 @@ const categoryColors: Record<string, string> = {
   Other: '#78909C'
 };
 
-const events = computed(() =>
-  props.segments.map((segment) => {
+const events = computed(() => {
+  console.log('[CALENDAR] Computing events from segments:', props.segments.length);
+  console.log('[CALENDAR] Segments:', props.segments);
+  console.log('[CALENDAR] Props date:', props.date);
+  
+  const mapped = props.segments.map((segment) => {
     const task = props.tasks.find((candidate) => candidate.id === segment.taskId);
     const color = task ? categoryColors[task.category] ?? categoryColors.Other : categoryColors.Other;
     // ВСЕГДА используем title из segment (приоритет), затем из task, fallback — пустая строка
     const title = segment.title || task?.title || '';
-    return {
+    const startDate = new Date(segment.start);
+    const endDate = new Date(segment.end);
+    
+    console.log(`[CALENDAR] Mapping segment: ${title}, start: ${startDate.toISOString()}, end: ${endDate.toISOString()}`);
+    
+    // Vuetify v-calendar ожидает даты в формате "YYYY-MM-DD" или "YYYY-MM-DD hh:mm"
+    // Преобразуем Date в нужный формат, используя ЛОКАЛЬНЫЕ методы для корректного отображения
+    // Сегменты приходят в UTC, но мы отображаем их в локальной таймзоне пользователя
+    // ВАЖНО: fixedTime сохраняется как "локальное время, записанное в UTC".
+    // Чтобы не получить сдвиг, отображаем через UTC-компоненты.
+    const formatDateForCalendar = (date: Date): string => {
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      const hours = String(date.getUTCHours()).padStart(2, '0');
+      const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+      const formatted = `${year}-${month}-${day} ${hours}:${minutes}`;
+      console.log(`[CALENDAR] Formatting date (UTC parts): ${date.toISOString()} -> ${formatted}`);
+      return formatted;
+    };
+    
+    const formattedStart = formatDateForCalendar(startDate);
+    const formattedEnd = formatDateForCalendar(endDate);
+    
+    const event = {
       id: segment.taskId,
-      title,
-      start: new Date(segment.start),
-      end: new Date(segment.end),
+      name: title, // v-calendar использует 'name' для отображения
+      title: title, // Также добавляем 'title' для использования в шаблоне
+      start: formattedStart, // Формат: "YYYY-MM-DD hh:mm"
+      end: formattedEnd, // Формат: "YYYY-MM-DD hh:mm"
       color,
       timed: true,
       data: {
@@ -60,8 +89,14 @@ const events = computed(() =>
         task
       }
     };
-  }),
-);
+    
+    console.log(`[CALENDAR] Created event:`, JSON.stringify(event, null, 2));
+    return event;
+  });
+  
+  console.log('[CALENDAR] Mapped events:', mapped);
+  return mapped;
+});
 
 const hasEvents = computed(() => events.value.length > 0);
 
@@ -142,6 +177,20 @@ function goToday() {
   const today = new Date();
   emit('change-day', today.toISOString());
 }
+
+function formatEventTime(timeStr: string | Date): string {
+  // Если это строка в формате "YYYY-MM-DD hh:mm", парсим её
+  if (typeof timeStr === 'string' && timeStr.includes(' ')) {
+    const [, timePart] = timeStr.split(' ');
+    const [hours, minutes] = timePart.split(':');
+    return `${hours.padStart(2, '0')}:${minutes}`;
+  }
+  // Для ISO или Date используем UTC-компоненты, чтобы избежать сдвига
+  const date = typeof timeStr === 'string' ? new Date(timeStr) : timeStr;
+  const hours = String(date.getUTCHours()).padStart(2, '0');
+  const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
 </script>
 
 <template>
@@ -171,7 +220,7 @@ function goToday() {
         >
           <v-calendar
             ref="calendar"
-            :model-value="date"
+            :model-value="currentDate"
             :events="events"
             type="day"
             view-mode="stack"
@@ -192,11 +241,11 @@ function goToday() {
           >
             <template #event="{ event }">
               <div class="calendar-event">
-                <span class="calendar-event__title">{{ event.title }}</span>
+                <span class="calendar-event__title">{{ event.title || event.name || 'Без названия' }}</span>
                 <span class="calendar-event__time">
-                  {{ new Date(event.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
+                  {{ formatEventTime(event.start) }}
                   -
-                  {{ new Date(event.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }}
+                  {{ formatEventTime(event.end) }}
                 </span>
               </div>
             </template>

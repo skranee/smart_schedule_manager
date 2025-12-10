@@ -15,7 +15,7 @@ import { applyFeedbackUpdates } from '../src/services/modelService.js';
 import { MODEL_VERSION } from '@shared/constants.js';
 import type { TaskCategory } from '@shared/types.js';
 
-const TARGET_EMAIL = 'pashaabmetkolive.ru@gmail.com';
+const TARGET_EMAIL = 'pavelskranee@gmail.com';
 const TARGET_NAME = 'Belarus Kid Demo';
 const TARGET_GOOGLE_ID = process.env.SEED_GOOGLE_ID?.trim();
 const FALLBACK_GOOGLE_ID = TARGET_GOOGLE_ID ?? `seed-google-${TARGET_EMAIL}`;
@@ -46,9 +46,19 @@ interface FeedbackSeed {
   features: number[];
 }
 
+/**
+ * Создает Date объект для указанного времени в указанный день.
+ * ВАЖНО: Создает UTC дату напрямую, интерпретируя локальное время как UTC
+ * (аналогично тому, как мы сохраняем fixedTime в TaskDrawer)
+ */
 function atTime(day: dayjs.Dayjs, time: string): Date {
   const [hours, minutes] = time.split(':').map(Number);
-  return day.hour(hours).minute(minutes).second(0).millisecond(0).toDate();
+  // Получаем компоненты даты (dayjs работает с локальным временем, но мы извлекаем компоненты)
+  const year = day.year();
+  const month = day.month(); // 0-11
+  const date = day.date();
+  // Создаем UTC дату напрямую, интерпретируя локальное время как UTC
+  return new Date(Date.UTC(year, month, date, hours, minutes, 0, 0));
 }
 
 function windowFor(day: dayjs.Dayjs, start: string, end: string) {
@@ -121,7 +131,7 @@ function createWindowTask(
     estimatedMinutes: minutes,
     priority,
     category,
-    desiredWindow: windowFor(day, start, end),
+    // desiredWindow удалено, так как не существует в TaskAttributes
     deadline: atTime(day, deadline),
     archived: false,
     ...extras
@@ -133,56 +143,42 @@ function buildDailyTaskSeeds(day: dayjs.Dayjs, userId: Types.ObjectId): TaskSeed
   const weekday = day.day(); // 0 Sunday, 6 Saturday
   const isWeekend = weekday === 0 || weekday === 6;
 
+  // Питание
   createMealTask(tasks, day, userId, 'Завтрак', '07:30', 30, 'breakfast');
-  createMealTask(tasks, day, userId, 'Обед', '13:15', 45, 'lunch');
+  createMealTask(tasks, day, userId, 'Обед', '13:00', 45, 'lunch');
   createMealTask(tasks, day, userId, 'Ужин', '19:00', 45, 'dinner');
 
   if (!isWeekend) {
-    const lessonStarts = ['08:30', '09:25', '10:20', '11:15', '12:10'];
-    lessonStarts.forEach((start, index) => {
+    // Школа - одна задача с 9:00 до 15:00 (6 часов = 360 минут)
       createFixedTask(
         tasks,
         day,
         userId,
-        `Школьный урок ${index + 1}`,
-        start,
-        45,
+      'Школа',
+      '09:00',
+      360,
         'Learning',
-        0.85,
-        { description: 'Фиксированное школьное занятие' }
+      0.9,
+      { description: 'Школьные занятия' }
       );
-    });
 
-    const breakStarts = ['09:15', '10:10', '11:05', '12:00'];
-    breakStarts.forEach((start, index) => {
-      createFixedTask(
-        tasks,
-        day,
-        userId,
-        `Перемена ${index + 1}`,
-        start,
-        10,
-        'Relaxing',
-        0.3,
-        { description: 'Небольшой перерыв между уроками' }
-      );
-    });
-
-    const homeworkMinutes = weekday === 1 || weekday === 3 ? 90 : 60;
+    // Домашняя работа - каждый день, разное количество времени
+    const homeworkMinutes = weekday === 1 || weekday === 3 ? 90 : weekday === 2 || weekday === 4 ? 75 : 60;
     createWindowTask(
       tasks,
       day,
       userId,
-      'Домашняя работа (математика)',
+      'Домашняя работа',
       homeworkMinutes,
       'Learning',
       0.7,
-      '16:30',
-      '19:15',
+      '16:00',
+      '19:00',
       '20:30',
-      { description: 'Повторение школьного материала' }
+      { description: 'Выполнение домашних заданий' }
     );
 
+    // Прогулка на улице - каждый день после школы
     createWindowTask(
       tasks,
       day,
@@ -191,203 +187,253 @@ function buildDailyTaskSeeds(day: dayjs.Dayjs, userId: Types.ObjectId): TaskSeed
       60,
       'Outdoor Play',
       0.6,
-      '16:00',
+      '15:30',
+      '18:00',
       '19:00',
-      '19:45',
       {
-        description: 'Целевая активность на свежем воздухе',
+        description: 'Активность на свежем воздухе',
         ai: {
           label: 'Outdoor Play',
-          confidence: 0.82,
+          confidence: 0.85,
           provider: 'seed-fixture'
         }
       }
     );
 
-    if (weekday === 1 || weekday === 5) {
+    // Понедельник - Футбол
+    if (weekday === 1) {
       createFixedTask(
         tasks,
         day,
         userId,
-        'Кружок/секция (по выбору)',
-        '17:30',
-        60,
+        'Футбол',
+        '17:00',
+        90,
         'Sport activity',
-        0.5,
-        { description: 'Внеурочная секция/спорт' }
+        0.7,
+        { description: 'Спортивная секция по футболу' }
       );
     }
 
+    // Вторник - Робототехника
+    if (weekday === 2) {
+      createFixedTask(
+        tasks,
+        day,
+        userId,
+        'Робототехника',
+        '17:00',
+        60,
+        'Learning',
+        0.65,
+        { description: 'Занятия по робототехнике и программированию' }
+      );
+    }
+
+    // Среда - Рисование
     if (weekday === 3) {
       createFixedTask(
         tasks,
         day,
         userId,
-        'Музыка/рисование',
-        '17:30',
+        'Рисование',
+        '17:00',
+        60,
+        'Creative',
+        0.6,
+        { description: 'Творческое занятие - изобразительное искусство' }
+      );
+    }
+
+    // Четверг - Плавание
+    if (weekday === 4) {
+      createFixedTask(
+        tasks,
+        day,
+        userId,
+        'Плавание',
+        '17:00',
+        60,
+        'Sport activity',
+        0.7,
+        { description: 'Занятия плаванием в бассейне' }
+      );
+    }
+
+    // Пятница - Музыка
+    if (weekday === 5) {
+      createFixedTask(
+        tasks,
+        day,
+        userId,
+        'Музыка',
+        '17:00',
         45,
         'Creative',
-        0.45,
-        { description: 'Творческое занятие' }
+        0.6,
+        { description: 'Урок музыки - фортепиано' }
       );
     }
 
-    if (weekday === 2) {
-      createWindowTask(
-        tasks,
-        day,
-        userId,
-        'Иностранный язык (онлайн)',
-        30,
-        'Learning',
-        0.55,
-        '17:30',
-        '18:45',
-        '19:30',
-        { description: 'Онлайн-урок английского языка' }
-      );
-
-      createWindowTask(
-        tasks,
-        day,
-        userId,
-        'растяжка и дыхание',
-        20,
-        'Relaxing',
-        0.4,
-        '18:30',
-        '19:15',
-        '19:30',
-        {
-          description: 'Короткая расслабляющая практика',
-          ai: {
-            label: 'Relaxing',
-            confidence: 0.88,
-            provider: 'seed-fixture'
-          }
-        }
-      );
-    }
-
-    if (weekday === 4) {
+    // Помощь по дому - несколько раз в неделю
+    if (weekday === 2 || weekday === 4) {
       createWindowTask(
         tasks,
         day,
         userId,
         'Помощь по дому',
-        20,
+        30,
         'Household',
-        0.35,
-        '18:00',
-        '19:15',
+        0.4,
+        '18:30',
         '19:30',
-        { description: 'Простая домашняя работа: уборка, полив цветов' }
+        '20:00',
+        { description: 'Домашние дела: уборка комнаты, помощь на кухне' }
       );
     }
   } else {
-    createWindowTask(
-      tasks,
-      day,
-      userId,
-      'Прогулка на улице (90 минут)',
-      90,
-      'Outdoor Play',
-      0.6,
-      '10:00',
-      '14:00',
-      '18:00',
-      {
-        description: 'Длинная прогулка для активности на свежем воздухе',
-        ai: {
-          label: 'Outdoor Play',
-          confidence: 0.8,
-          provider: 'seed-fixture'
-        }
-      }
-    );
-
-    createWindowTask(
-      tasks,
-      day,
-      userId,
-      'Музыка/рисование',
-      60,
-      'Creative',
-      0.45,
-      '15:00',
-      '18:00',
-      '19:00',
-      { description: 'Творческое занятие дома' }
-    );
-
+    // Выходные дни - больше времени на отдых и развлечения
+    
+    // Суббота
     if (weekday === 6) {
+      // Утренняя зарядка
+    createWindowTask(
+      tasks,
+      day,
+      userId,
+        'Утренняя зарядка',
+        30,
+        'Sport activity',
+        0.5,
+        '09:00',
+        '10:30',
+        '11:00',
+        { description: 'Легкая физическая активность' }
+    );
+
+      // Прогулка в парке
       createWindowTask(
         tasks,
         day,
         userId,
-        'прогулка в парке',
-        60,
-        'Relaxing',
-        0.5,
+        'Прогулка в парке',
+        90,
+        'Outdoor Play',
+        0.7,
         '11:00',
+        '15:00',
         '16:00',
-        '18:00',
         {
-          description: 'Неспешная прогулка с родителями',
+          description: 'Активная прогулка на свежем воздухе',
           ai: {
-            label: 'Relaxing',
+            label: 'Outdoor Play',
             confidence: 0.9,
             provider: 'seed-fixture'
           }
         }
       );
 
+      // Танцы (суббота)
+      createFixedTask(
+        tasks,
+        day,
+        userId,
+        'Танцы',
+        '15:00',
+        60,
+        'Sport activity',
+        0.65,
+        { description: 'Занятия танцами' }
+      );
+
+      // Семейный поход в магазин
       createWindowTask(
         tasks,
         day,
         userId,
-        'пойти в магазин',
-        30,
+        'Поход в магазин',
+        45,
         'Admin/Errands',
-        0.45,
-        '12:00',
-        '17:00',
+        0.4,
+        '16:00',
         '18:00',
+        '19:00',
         {
-          description: 'Семейный поход за продуктами',
+          description: 'Семейный поход за покупками',
           ai: {
             label: 'Admin/Errands',
-            confidence: 0.86,
-            provider: 'seed-fixture'
-          }
-        }
-      );
-    }
-
-    if (weekday === 0) {
-      createWindowTask(
-        tasks,
-        day,
-        userId,
-        'растяжка и дыхание',
-        20,
-        'Relaxing',
-        0.4,
-        '09:30',
-        '11:00',
-        '12:00',
-        {
-          description: 'Легкая утренняя зарядка',
-          ai: {
-            label: 'Relaxing',
             confidence: 0.85,
             provider: 'seed-fixture'
           }
         }
       );
     }
+
+    // Воскресенье
+    if (weekday === 0) {
+      // Спокойное утро
+      createWindowTask(
+        tasks,
+        day,
+        userId,
+        'Спокойное утро',
+        60,
+        'Relaxing',
+        0.4,
+        '09:00',
+        '11:00',
+        '12:00',
+        { description: 'Время для отдыха и спокойных занятий' }
+      );
+
+      // Лепка/Рукоделие
+      createWindowTask(
+        tasks,
+        day,
+        userId,
+        'Лепка из пластилина',
+        60,
+        'Creative',
+        0.55,
+        '11:00',
+        '14:00',
+        '15:00',
+        { description: 'Творческое занятие - лепка' }
+      );
+
+      // Настольные игры
+      createWindowTask(
+        tasks,
+        day,
+        userId,
+        'Настольные игры',
+        60,
+        'Games',
+        0.5,
+        '15:00',
+        '18:00',
+        '19:00',
+        { description: 'Игры с семьей' }
+      );
+
+      // Подготовка к школе
+      createWindowTask(
+        tasks,
+        day,
+        userId,
+        'Подготовка к школе',
+        30,
+        'Learning',
+        0.6,
+        '18:00',
+        '19:30',
+        '20:00',
+        { description: 'Сбор портфеля, подготовка формы' }
+      );
+    }
   }
 
+  // Чтение перед сном - каждый день
   createWindowTask(
     tasks,
     day,
@@ -395,12 +441,29 @@ function buildDailyTaskSeeds(day: dayjs.Dayjs, userId: Types.ObjectId): TaskSeed
     'Чтение книги',
     30,
     'Relaxing',
-    0.4,
+    0.5,
     '19:30',
     '21:00',
     '21:15',
     { description: 'Чтение перед сном' }
   );
+
+  // Игры - несколько раз в неделю
+  if (weekday === 1 || weekday === 3 || weekday === 5) {
+    createWindowTask(
+      tasks,
+      day,
+      userId,
+      'Игры',
+      45,
+      'Games',
+      0.4,
+      '18:00',
+      '19:30',
+      '20:00',
+      { description: 'Время для игр' }
+    );
+  }
 
   return tasks;
 }
@@ -413,13 +476,16 @@ async function seedCatalog(userId: Types.ObjectId) {
     defaultPriority: number;
     category: TaskCategory;
   }[] = [
-    { title: 'Домашняя работа (математика)', defaultMinutes: 60, defaultPriority: 0.7, category: 'Learning' },
-    { title: 'Чтение книги', defaultMinutes: 30, defaultPriority: 0.4, category: 'Relaxing' },
+    { title: 'Домашняя работа', defaultMinutes: 60, defaultPriority: 0.7, category: 'Learning' },
+    { title: 'Чтение книги', defaultMinutes: 30, defaultPriority: 0.5, category: 'Relaxing' },
     { title: 'Прогулка на улице', defaultMinutes: 60, defaultPriority: 0.6, category: 'Outdoor Play' },
-    { title: 'Кружок/секция (по выбору)', defaultMinutes: 60, defaultPriority: 0.5, category: 'Sport activity' },
-    { title: 'Помощь по дому', defaultMinutes: 20, defaultPriority: 0.3, category: 'Household' },
-    { title: 'Иностранный язык (онлайн)', defaultMinutes: 30, defaultPriority: 0.5, category: 'Learning' },
-    { title: 'Музыка/рисование', defaultMinutes: 45, defaultPriority: 0.4, category: 'Creative' }
+    { title: 'Футбол', defaultMinutes: 90, defaultPriority: 0.7, category: 'Sport activity' },
+    { title: 'Плавание', defaultMinutes: 60, defaultPriority: 0.7, category: 'Sport activity' },
+    { title: 'Рисование', defaultMinutes: 60, defaultPriority: 0.6, category: 'Creative' },
+    { title: 'Музыка', defaultMinutes: 45, defaultPriority: 0.6, category: 'Creative' },
+    { title: 'Робототехника', defaultMinutes: 60, defaultPriority: 0.65, category: 'Learning' },
+    { title: 'Помощь по дому', defaultMinutes: 30, defaultPriority: 0.4, category: 'Household' },
+    { title: 'Игры', defaultMinutes: 45, defaultPriority: 0.4, category: 'Games' }
   ];
 
   await CatalogModel.insertMany(
@@ -459,7 +525,7 @@ function selectFeedbackSeeds(
     return undefined;
   };
 
-  const homework = findByTitle('Домашняя работа (математика)');
+  const homework = findByTitle('Домашняя работа');
   if ((weekday === 1 || weekday === 3) && homework && homework.slot.featuresSnapshot.length > 0) {
     seeds.push({
       userId,
@@ -627,15 +693,22 @@ async function ensureDemoUser() {
 async function main() {
   await connectMongo();
   try {
-    const user = await ensureDemoUser();
+    // Сначала удаляем все данные пользователя, если он существует
+    const existingUser = await UserModel.findOne({ email: TARGET_EMAIL }).exec();
+    if (existingUser) {
+      console.log(`Deleting all data for user: ${TARGET_EMAIL}`);
+      await Promise.all([
+        TaskModel.deleteMany({ userId: existingUser._id }),
+        PlanModel.deleteMany({ userId: existingUser._id }),
+        FeedbackModel.deleteMany({ userId: existingUser._id }),
+        CatalogModel.deleteMany({ userId: existingUser._id }),
+        UserModel.deleteOne({ _id: existingUser._id })
+      ]);
+      console.log('Deleted all existing user data.');
+    }
 
-    await Promise.all([
-      TaskModel.deleteMany({ userId: user._id }),
-      PlanModel.deleteMany({ userId: user._id }),
-      FeedbackModel.deleteMany({ userId: user._id }),
-      CatalogModel.deleteMany({ userId: user._id })
-    ]);
-    console.log('Cleared existing demo artifacts.');
+    const user = await ensureDemoUser();
+    console.log('Created/updated demo user.');
 
     await seedCatalog(user._id);
 
@@ -668,7 +741,7 @@ async function main() {
         const planId = result.plan.id;
         if (planId) {
           const tasksById = new Map<string, TaskDocument>(
-            insertedTasks.map((doc) => [doc._id.toString(), doc])
+            insertedTasks.map((doc) => [doc._id.toString(), doc as unknown as TaskDocument] as [string, TaskDocument])
           );
           const seeds = selectFeedbackSeeds(
             currentDay,
@@ -723,16 +796,16 @@ async function main() {
       }
     }
 
-    const delta = finalWeights.map((value, index) => Number((value - initialWeights[index]).toFixed(4)));
+    const delta = finalWeights.map((value: number, index: number) => Number((value - initialWeights[index]).toFixed(4)));
 
     console.log(
       [
         `Inserted tasks: ${tasksInserted}`,
         `Built plans: ${plansCreated}`,
         `Applied feedback entries: ${feedbackSeeds.length}`,
-        `Initial weights: [${initialWeights.map((w) => w.toFixed(2)).join(', ')}]`,
-        `Updated weights: [${finalWeights.map((w) => w.toFixed(2)).join(', ')}]`,
-        `Δw: [${delta.map((w) => w.toFixed(4)).join(', ')}]`
+        `Initial weights: [${initialWeights.map((w: number) => w.toFixed(2)).join(', ')}]`,
+        `Updated weights: [${finalWeights.map((w: number) => w.toFixed(2)).join(', ')}]`,
+        `Δw: [${delta.map((w: number) => w.toFixed(4)).join(', ')}]`
       ].join('\n')
     );
   } catch (error) {

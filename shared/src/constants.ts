@@ -140,8 +140,10 @@ export const DEFAULT_MEAL_WINDOWS: MealWindowDefinition[] = [
 ];
 
 export const CHILD_SCHOOL_WINDOW = {
+  // Для реалистичного школьного дня оставляем привычное начало,
+  // но расширяем конец до 15:00, чтобы вместить 6‑часовые смены.
   startMinutes: 8 * 60 + 30,
-  endMinutes: 13 * 60 + 15
+  endMinutes: 15 * 60
 };
 
 export const CHILD_ACTIVITY_WINDOW = {

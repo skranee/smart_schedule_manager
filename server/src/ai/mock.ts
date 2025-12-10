@@ -47,6 +47,7 @@ export class MockProvider implements AIProvider {
         : DEFAULT_REASON[input.locale];
 
     if (input.locale === 'ru') {
+      // reason уже должен быть грамматически корректен благодаря исправленным переводам
       return {
         text: `Мы запланировали «${input.taskTitle}» на ${input.start} — ${input.end}, чтобы ${reason}.`,
         provider: DEFAULT_PROVIDER

@@ -5,9 +5,44 @@ import {
   feedbackRequestSchema,
   applyEditsSchema
 } from '../utils/validators.js';
-import { calculateSchedule } from '../services/scheduleService.js';
+import { calculateSchedule, getPlanForDate } from '../services/scheduleService.js';
 import { FeedbackModel, PlanModel, type PlanSlot } from '../models/index.js';
 import { applyFeedbackUpdates } from '../services/modelService.js';
+
+export const getPlanHandler = asyncHandler(async (req: Request, res: Response) => {
+  const date = req.query.date as string;
+  if (!date) {
+    res.status(400).json({ error: 'Date parameter is required' });
+    return;
+  }
+
+  const scheduleDate = new Date(date);
+  scheduleDate.setUTCHours(0, 0, 0, 0);
+  const normalizedIso = scheduleDate.toISOString();
+
+  // Сначала пытаемся загрузить план из БД
+  const existingPlan = await getPlanForDate(req.user!, normalizedIso);
+  
+  if (existingPlan) {
+    res.json({
+      plan: existingPlan.plan,
+      slots: existingPlan.slots,
+      reasoning: existingPlan.reasoning,
+      warnings: existingPlan.warnings
+    });
+    return;
+  }
+
+  // Если плана нет, рассчитываем новый
+  const result = await calculateSchedule(req.user!, normalizedIso);
+  
+  res.json({
+    plan: result.plan,
+    slots: result.slots,
+    reasoning: result.reasoning,
+    warnings: result.warnings
+  });
+});
 
 export const calculateScheduleHandler = asyncHandler(async (req: Request, res: Response) => {
   const parsed = scheduleRequestSchema.safeParse(req.body);
@@ -19,9 +54,10 @@ export const calculateScheduleHandler = asyncHandler(async (req: Request, res: R
   }
 
   const scheduleDate = new Date(parsed.data.date);
-  scheduleDate.setHours(0, 0, 0, 0);
+  scheduleDate.setUTCHours(0, 0, 0, 0);
   const normalizedIso = scheduleDate.toISOString();
 
+  // Всегда пересчитываем (force recalculation)
   const result = await calculateSchedule(req.user!, normalizedIso, parsed.data.taskIds);
 
   res.json({

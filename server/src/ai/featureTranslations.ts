@@ -16,7 +16,7 @@ const FEATURE_TRANSLATIONS: FeatureTranslationMap = {
     ru: 'это немного меняет привычный распорядок'
   },
   'it fits your energy level at that time': {
-    ru: 'это подходит под твой уровень энергии в это время'
+    ru: 'это подходило под твой уровень энергии в это время'
   },
   'you might feel sleepy at that time': {
     ru: 'в это время ты можешь чувствовать сонливость'
@@ -46,7 +46,7 @@ const FEATURE_TRANSLATIONS: FeatureTranslationMap = {
     ru: 'это оставляет достаточно времени на еду'
   },
   'it fits around the school day': {
-    ru: 'это удобно вписывается в школьный день'
+    ru: 'это удобно вписывалось в школьный день'
   },
   'it avoids school lesson time': {
     ru: 'это не мешает школьным урокам'
@@ -64,7 +64,7 @@ const FEATURE_TRANSLATIONS: FeatureTranslationMap = {
     ru: 'цель по активности уже выполнена'
   },
   'it keeps the plan balanced': {
-    ru: 'это помогает сохранить сбалансированный день'
+    ru: 'сохранить сбалансированный день'
   }
 };
 

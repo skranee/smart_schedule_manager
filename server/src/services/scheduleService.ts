@@ -31,7 +31,17 @@ function buildHistory(previousPlans: PlanDocument[]): SchedulerHistory {
 
   for (const plan of previousPlans) {
     for (const slot of plan.slots) {
-      const startMinutes = new Date(slot.start).getHours() * 60 + new Date(slot.start).getMinutes();
+      if (!slot.start) {
+        console.warn('[buildHistory] Slot start is missing, skipping');
+        continue;
+      }
+      const slotStart = slot.start instanceof Date ? slot.start : new Date(slot.start);
+      if (isNaN(slotStart.getTime())) {
+        console.warn('[buildHistory] Invalid slot start date, skipping:', slot.start);
+        continue;
+      }
+      // Используем UTC-компоненты, чтобы избежать смещений из-за таймзоны
+      const startMinutes = slotStart.getUTCHours() * 60 + slotStart.getUTCMinutes();
       const category = slot.category as TaskCategory;
       if (!categoryMinutes[category]) {
         categoryMinutes[category] = [];
@@ -110,29 +120,103 @@ function extractFeatureSummaries(segment: ScheduledSegment): string[] {
     .map(([key, value]) => summarizeFeature(key, value));
 }
 
+export async function getPlanForDate(
+  user: UserDocument,
+  date: string,
+) {
+  const dayStart = new Date(date);
+  dayStart.setUTCHours(0, 0, 0, 0);
+  
+  const plan = await PlanModel.findOne({
+    userId: user._id,
+    date: dayStart
+  }).exec();
+  
+  if (!plan) {
+    return null;
+  }
+  
+  // Загружаем reasoning из слотов
+  const reasoning: Record<string, string> = {};
+  for (const slot of plan.slots) {
+    if (slot.reasoningText) {
+      reasoning[slot.taskId] = slot.reasoningText;
+    }
+  }
+  
+  return {
+    plan: serializePlan(plan),
+    slots: plan.slots.map((slot: any) => ({
+      taskId: typeof slot.taskId === 'string' ? slot.taskId : slot.taskId.toString(),
+      title: slot.title,
+      start: slot.start.toISOString(),
+      end: slot.end.toISOString(),
+      score: slot.score,
+      featuresSnapshot: slot.featuresSnapshot ?? [],
+      category: slot.category as any
+    })),
+    reasoning,
+    warnings: []
+  };
+}
+
 export async function calculateSchedule(
   user: UserDocument,
   date: string,
   taskIds?: string[],
 ) {
+  // Нормализуем дату: используем только дату без времени
   const dayStart = new Date(date);
-  dayStart.setHours(0, 0, 0, 0);
+  dayStart.setUTCHours(0, 0, 0, 0);
   const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
+  dayEnd.setUTCDate(dayEnd.getUTCDate() + 1);
 
-  // Get today for filtering tasks without scheduledDate
+  // Получаем сегодняшнюю дату для фильтрации задач без scheduledDate
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
+  // Сравниваем даты по UTC для избежания проблем с часовыми поясами
   const isToday = dayStart.getTime() === today.getTime();
 
+  // Фильтр дат: включаем задачи для выбранного дня
+  // Задачи без scheduledDate показываются только на сегодня
+  // Задачи с scheduledDate показываются на указанный день
+  // Задачи с fixedTime.start показываются ТОЛЬКО на день, когда fixedTime.start попадает в выбранный день
+  // Если у задачи есть fixedTime.start на другой день, она не должна попадать в расписание, даже если есть scheduledDate
   const dateFilter = {
     $or: [
-      // Tasks scheduled for this specific day
+      // Tasks with fixedTime.start in the selected day (приоритет: fixedTime определяет день)
+      { 'fixedTime.start': { $gte: dayStart, $lt: dayEnd } },
+      // Tasks scheduled for this specific day (только если нет fixedTime или fixedTime на этот же день)
+      {
+        $and: [
       { scheduledDate: { $gte: dayStart, $lt: dayEnd } },
-      // Tasks without scheduledDate show only on today
-      ...(isToday ? [{ scheduledDate: { $exists: false } }, { scheduledDate: null }] : [])
+          {
+            $or: [
+              { 'fixedTime.start': { $exists: false } },
+              { 'fixedTime.start': null },
+              { 'fixedTime.start': { $gte: dayStart, $lt: dayEnd } }
+            ]
+          }
+        ]
+      },
+      // Tasks without scheduledDate show only on today (только если нет fixedTime)
+      ...(isToday ? [
+        {
+          $and: [
+            { $or: [{ scheduledDate: { $exists: false } }, { scheduledDate: null }] },
+            {
+              $or: [
+                { 'fixedTime.start': { $exists: false } },
+                { 'fixedTime.start': null }
+              ]
+            }
+          ]
+        }
+      ] : [])
     ]
   };
+  
+  console.log(`[CALCULATE] Date: ${date}, isToday: ${isToday}, dayStart: ${dayStart.toISOString()}, dayEnd: ${dayEnd.toISOString()}`);
 
   const tasksQuery = TaskModel.find({
     userId: user._id,
@@ -154,8 +238,15 @@ export async function calculateSchedule(
   }
 
   const tasks = await tasksQuery.exec();
+  
+  console.log(`[CALCULATE] Found ${tasks.length} tasks for date ${date}`);
+  if (tasks.length > 0) {
+    console.log(`[CALCULATE] Task titles:`, tasks.map((t: any) => t.title).join(', '));
+    console.log(`[CALCULATE] Task scheduledDates:`, tasks.map((t: any) => t.scheduledDate ? new Date(t.scheduledDate).toISOString().split('T')[0] : 'null').join(', '));
+  }
 
   if (tasks.length === 0) {
+    console.log(`[CALCULATE] No tasks found - returning empty schedule`);
     return {
       plan: null,
       slots: [],
@@ -191,7 +282,7 @@ export async function calculateSchedule(
       activityTargetMinutes: user.activityTargetMinutes ?? undefined
     } as UserSettings,
     history,
-    profile: user.profile ?? 'adult'
+    profile: user.profile ?? 'child-school-age'
   });
 
   const aiProvider = getAIProvider();
@@ -232,10 +323,12 @@ export async function calculateSchedule(
     } catch (error) {
       const mainSummary =
         localizedFeatures[0] ?? translateFeatureSummary('it keeps the plan balanced', localeCode);
+      // Убеждаемся, что mainSummary грамматически корректен для использования после "чтобы"
+      const finalSummary = mainSummary ?? (localeCode === 'ru' ? 'сохранить удобный баланс дня' : 'keep your day balanced');
       const fallback =
         localeCode === 'ru'
-          ? `Мы запланировали «${task.title}» на ${formattedStart} — ${formattedEnd}, чтобы ${mainSummary ?? 'сохранить удобный баланс дня'}.`
-          : `We planned "${task.title}" for ${formattedStart} to ${formattedEnd} to ${mainSummary ?? 'keep your day balanced'}.`;
+          ? `Мы запланировали «${task.title}» на ${formattedStart} — ${formattedEnd}, чтобы ${finalSummary}.`
+          : `We planned "${task.title}" for ${formattedStart} to ${formattedEnd} to ${finalSummary}.`;
       reasoning[segment.taskId] = fallback;
     }
   }

@@ -48,7 +48,7 @@ const userSchema = new Schema<IUserModelAttributes>(
     workStart: { type: String, default: '09:00' },
     workEnd: { type: String, default: '17:00' },
     preferredDailyMinutes: { type: Number, default: 8 * 60 },
-    profile: { type: String, enum: ['adult', 'child-school-age'], default: 'adult' },
+    profile: { type: String, enum: ['adult', 'child-school-age'], default: 'child-school-age' },
     mealPreferences: {
       breakfastOffset: boundedOffset,
       lunchOffset: boundedOffset,

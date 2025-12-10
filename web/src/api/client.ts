@@ -50,11 +50,14 @@ export async function fetchTasks(includeArchived = false): Promise<TaskRecord[]>
   const response = await api.get('/tasks', {
     params: { archived: includeArchived }
   });
+  console.log('🌐 fetchTasks response:', response.data);
   return response.data;
 }
 
 export async function createTask(payload: Partial<TaskBase>) {
+  console.log('🌐 createTask payload:', payload);
   const response = await api.post('/tasks', payload);
+  console.log('🌐 createTask response:', response.data);
   return response.data as TaskRecord;
 }
 
@@ -71,11 +74,20 @@ function normalizeForApi(date: string): string {
   const parsed = new Date(date);
   if (Number.isNaN(parsed.valueOf())) {
     const fallback = new Date();
-    fallback.setHours(0, 0, 0, 0);
+    fallback.setUTCHours(0, 0, 0, 0);
     return fallback.toISOString();
   }
-  parsed.setHours(0, 0, 0, 0);
+  parsed.setUTCHours(0, 0, 0, 0);
   return parsed.toISOString();
+}
+
+export async function getPlan(date: string): Promise<ScheduleResponseDto> {
+  const response = await api.get<ScheduleResponseDto>('/schedule/plan', {
+    params: {
+      date: normalizeForApi(date)
+    }
+  });
+  return response.data;
 }
 
 export async function calculateSchedule(date: string, taskIds?: string[]) {

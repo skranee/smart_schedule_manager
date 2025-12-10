@@ -33,7 +33,9 @@ export function diffMinutes(a: Date, b: Date): number {
 }
 
 export function buildDaySlots(date: string, slotMinutes: number): { start: Date; end: Date }[] {
-  const base = parseISO(date);
+  // Стартуем от полуночи в UTC, чтобы избежать смещений из-за локального часового пояса.
+  const base = new Date(date);
+  base.setUTCHours(0, 0, 0, 0);
   const slots: { start: Date; end: Date }[] = [];
   for (let minutes = 0; minutes < MINUTES_IN_DAY; minutes += slotMinutes) {
     const start = addMinutes(base, minutes);
