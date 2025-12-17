@@ -178,7 +178,7 @@ function buildDailyTaskSeeds(day: dayjs.Dayjs, userId: Types.ObjectId): TaskSeed
       { description: 'Выполнение домашних заданий' }
     );
 
-    // Прогулка на улице - каждый день после школы
+    // Прогулка на улице - каждый день, гибкое время
     createWindowTask(
       tasks,
       day,
@@ -187,9 +187,9 @@ function buildDailyTaskSeeds(day: dayjs.Dayjs, userId: Types.ObjectId): TaskSeed
       60,
       'Outdoor Play',
       0.6,
-      '15:30',
-      '18:00',
+      '10:00',
       '19:00',
+      '20:00',
       {
         description: 'Активность на свежем воздухе',
         ai: {
@@ -320,9 +320,9 @@ function buildDailyTaskSeeds(day: dayjs.Dayjs, userId: Types.ObjectId): TaskSeed
         90,
         'Outdoor Play',
         0.7,
-        '11:00',
-        '15:00',
-        '16:00',
+        '10:00',
+        '18:00',
+        '19:00',
         {
           description: 'Активная прогулка на свежем воздухе',
           ai: {
