@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { categorizeWithHeuristics, refineCategoryPrediction } from '../src/ai/categoryMapping.js';
 
 describe('AI heuristics', () => {

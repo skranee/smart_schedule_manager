@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { format, parseISO } from 'date-fns';
 import { enUS, ru } from 'date-fns/locale';
@@ -21,6 +21,7 @@ const userStore = useUserStore();
 const { t } = useI18n();
 
 const dateLocale = computed(() => (userStore.locale === 'ru' ? ru : enUS));
+const feedbackLoading = ref(false);
 
 const humanReasoning = computed(() => {
   if (props.reasoning) return props.reasoning;
@@ -41,9 +42,15 @@ const humanReasoning = computed(() => {
   });
 });
 
-function onFeedback(label: 0 | 1) {
-  if (!props.segment) return;
-  emit('feedback', { taskId: props.segment.taskId, label });
+async function onFeedback(label: 0 | 1) {
+  if (!props.segment || feedbackLoading.value) return;
+
+  feedbackLoading.value = true;
+  try {
+    emit('feedback', { taskId: props.segment.taskId, label });
+  } finally {
+    feedbackLoading.value = false;
+  }
 }
 </script>
 
@@ -60,8 +67,20 @@ function onFeedback(label: 0 | 1) {
       </div>
       <div class="d-flex ga-2">
         <v-btn icon="mdi-pencil-outline" variant="tonal" @click="emit('edit')" />
-        <v-btn icon="mdi-thumb-up-outline" color="success" variant="tonal" @click="onFeedback(1)" />
-        <v-btn icon="mdi-thumb-down-outline" color="error" variant="tonal" @click="onFeedback(0)" />
+        <v-btn
+          icon="mdi-thumb-up-outline"
+          color="success"
+          variant="tonal"
+          :loading="feedbackLoading"
+          @click="onFeedback(1)"
+        />
+        <v-btn
+          icon="mdi-thumb-down-outline"
+          color="error"
+          variant="tonal"
+          :loading="feedbackLoading"
+          @click="onFeedback(0)"
+        />
       </div>
     </div>
 

@@ -60,11 +60,6 @@ export async function applyFeedbackUpdates(
   const regularization = options?.regularization ?? INITIAL_REGULARIZATION;
 
   const { weights: initialWeights } = ensureUserWeights(user);
-  const totalFeedbacks = await FeedbackModel.countDocuments({ userId: user._id });
-
-  if (totalFeedbacks < 20) {
-    return user;
-  }
 
   let weights = initialWeights.slice();
   const hardRuleIndexes = [

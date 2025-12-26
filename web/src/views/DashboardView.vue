@@ -209,7 +209,10 @@ async function handleFeedback(payload: { taskId: string; label: 0 | 1 }) {
       ],
       payload.label === 1 ? 'kept' : 'thumbs',
     );
-    showToast(t('toast.saved'));
+    const message = payload.label === 1
+      ? t('reasoning.feedbackPositive')
+      : t('reasoning.feedbackNegative');
+    showToast(message, 'success');
   } catch (error) {
     showToast((error as Error).message, 'error');
   }
